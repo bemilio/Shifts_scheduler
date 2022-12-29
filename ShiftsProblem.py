@@ -49,15 +49,15 @@ class ShiftsProblem:
         # Each medic works at most one shift per day, except for sundays.
         for n in self.all_medics:
             for d in self.all_days:
-                if d not in self.festive_days:
-                    self.model.AddAtMostOne(self.shifts[(n, d, s)] for s in self.all_shifts[d])
-                else:
-                    # Handle medics preferring 12h shift sundays
-                    if n not in medics_preferring_full_sundays:
-                        self.model.AddAtMostOne(self.shifts[(n, d, s)] for s in self.all_shifts[d])
+                if n in medics_preferring_full_sundays:
+                    if d in self.festive_days:
+                        self.model.Add(self.shifts[(n, d, 0)] ==
+                                       self.shifts[(n, d, 3)]) # morning shift is equal to afternoon shift
                     else:
-                        self.model.Add(
-                            self.shifts[(n, d, 0)] == self.shifts[(n, d, 3)])  # morning shift is equal to afternoon shift
+                        self.model.AddAtMostOne(self.shifts[(n, d, s)] for s in self.all_shifts[d])
+                else:
+                    self.model.AddAtMostOne(self.shifts[(n, d, s)] for s in self.all_shifts[d])
+
         # Rest day after night shift
         for n in self.all_medics:
             for d in self.all_days:
@@ -67,8 +67,14 @@ class ShiftsProblem:
                     shifts_including_last_night.append(night_shift)
                     self.model.AddAtMostOne(shifts_including_last_night)
 
-        # Try to distribute the shifts evenly, so that each medic works
-        # min_shifts_per_nurse shifts.
+        # Include vacation days
+        for n in self.all_medics:
+            for day in vacation_days[n]:
+                d = day - 1 # convert to 0-indexing
+                for s in self.all_shifts[d]:
+                    self.model.Add(self.shifts[(n, d, s)]==0)
+
+        # Try to distribute the shifts evenly
         total_number_of_shifts = (num_shifts_festive * len(self.festive_days) + self.num_shifts_saturdays * len(self.saturdays) \
                                   + self.num_shifts_ferial * (num_days - len(self.saturdays) - len(self.festive_days)))
         min_shifts_per_nurse = (total_number_of_shifts // num_medics) - 1
@@ -115,20 +121,23 @@ class ShiftsProblem:
                         festive_shifts_worked.append(self.shifts[(n, d, s)])
                     if s == self.all_shifts[d][-1]:
                         night_shifts_worked.append(self.shifts[(n, d, s)])
-            self.aux_vars_up[(0, n)] = self.model.NewIntVar(0,10, 'aux_variable_up%it%im' % (0, n))
-            self.aux_vars_low[(0, n)] = self.model.NewIntVar(0,10, 'aux_variable_low%it%im' % (0, n))
-            self.model.Add(desired_shifts_per_nurse - sum(shifts_worked)<= self.aux_vars_up[(0,n)])
-            self.model.Add(desired_shifts_per_nurse - sum(shifts_worked)>= -1*self.aux_vars_low[(0,n)])
+            self.aux_vars_up[(0, n)] = self.model.NewIntVar(0,3, 'aux_variable_up%it%im' % (0, n))
+            self.aux_vars_low[(0, n)] = self.model.NewIntVar(0,3, 'aux_variable_low%it%im' % (0, n))
+            avg_shifts_per_day = desired_shifts_per_nurse / num_days
+            reduction_shifts_due_to_vacations = int(avg_shifts_per_day * len(vacation_days[n]))
+            # print("Medic %d should work %d shifts" %(n, desired_shifts_per_nurse - reduction_shifts_due_to_vacations))
+            self.model.Add( (desired_shifts_per_nurse - reduction_shifts_due_to_vacations) - sum(shifts_worked)<= self.aux_vars_up[(0,n)])
+            self.model.Add( (desired_shifts_per_nurse - reduction_shifts_due_to_vacations) - sum(shifts_worked)>= -1*self.aux_vars_low[(0,n)])
             # self.model.Add(self.aux_vars_up[(0, n)] >= 0)
             # self.model.Add(self.aux_vars_low[(0, n)] >= 0)
-            self.aux_vars_up[(1, n)] = self.model.NewIntVar(0,10, 'aux_variable_up%it%im' % (1, n))
-            self.aux_vars_low[(1, n)] = self.model.NewIntVar(0,10, 'aux_variable_low%it%im' % (1, n))
+            self.aux_vars_up[(1, n)] = self.model.NewIntVar(0,2, 'aux_variable_up%it%im' % (1, n))
+            self.aux_vars_low[(1, n)] = self.model.NewIntVar(0,2, 'aux_variable_low%it%im' % (1, n))
             self.model.Add(desired_festive_shifts_per_nurse - sum(festive_shifts_worked) <= self.aux_vars_up[(1, n)])
             self.model.Add(desired_festive_shifts_per_nurse - sum(festive_shifts_worked) >= -1 * self.aux_vars_low[(1, n)])
             # self.model.Add(self.aux_vars_up[(1, n)] >= 0)
             # self.model.Add(self.aux_vars_low[(1, n)] >= 0)
-            self.aux_vars_up[(2, n)] = self.model.NewIntVar(0,10, 'aux_variable_up%it%im' % (2, n))
-            self.aux_vars_low[(2, n)] = self.model.NewIntVar(0,10, 'aux_variable_low%it%im' % (2, n))
+            self.aux_vars_up[(2, n)] = self.model.NewIntVar(0,2, 'aux_variable_up%it%im' % (2, n))
+            self.aux_vars_low[(2, n)] = self.model.NewIntVar(0,2, 'aux_variable_low%it%im' % (2, n))
             self.model.Add(desired_night_shifts_per_nurse - sum(night_shifts_worked) <= self.aux_vars_up[(2, n)])
             self.model.Add(desired_night_shifts_per_nurse - sum(night_shifts_worked) >= -1 * self.aux_vars_low[(2, n)])
             # self.model.Add(self.aux_vars_up[(2, n)] >= 0)

@@ -36,9 +36,9 @@ def run_UI():
                                 vacation_days=vacation_days)
         status = problem.Solve()
         if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-            print("Problem solved")
+            st.write("Soluzione trovata")
             fig = problem.PrintTable()
             st.pyplot(fig=fig )
         else:
-            print('No solution found.')
+            st.write('Nessuna soluzione trovata')
 

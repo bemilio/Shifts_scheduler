@@ -41,23 +41,23 @@ from ortools.sat.python import cp_model
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     run_UI()
-    problem = ShiftsProblem(month=12, year=2022, num_medics=8,
-                            medics_preferring_full_sundays=[2,3,4], festive_days_no_sundays=[])
-    status = problem.Solve()
+    # problem = ShiftsProblem(month=12, year=2022, num_medics=8,
+    #                         medics_preferring_full_sundays=[2,3,4], festive_days_no_sundays=[])
+    # status = problem.Solve()
 
     # Statistics.
-    if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
-        print("Problem solved")
-    else:
-        print('No solution found.')
-    print('\nStatistics')
-    print('  - conflicts      : %i' % problem.solver.NumConflicts())
-    print('  - branches       : %i' % problem.solver.NumBranches())
-    print('  - wall time      : %f s' % problem.solver.WallTime())
+    # if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
+    #     print("Problem solved")
+    # else:
+    #     print('No solution found.')
+    # print('\nStatistics')
+    # print('  - conflicts      : %i' % problem.solver.NumConflicts())
+    # print('  - branches       : %i' % problem.solver.NumBranches())
+    # print('  - wall time      : %f s' % problem.solver.WallTime())
     # print('  - solutions found: %i' % problem.solution_printer.solution_count())
 
-    problem.PrintTable()
+    # problem.PrintTable()
 
 
-    print("pause...")
+    # print("pause...")
 
