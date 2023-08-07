@@ -105,13 +105,13 @@ class ShiftsProblem:
         '''
         num_shifts_festive = 3 # 3 = 1 morning + 1 afternoon + 1 night
         total_number_of_shifts = (num_shifts_festive * len(self.festive_days) +
-                    (num_morning_shifts_saturday + num_afternoon_shifts_saturday) * len(self.saturdays) +
-                    (num_morning_shifts_ferial + num_afternoon_shifts_ferial) * (num_days - len(self.saturdays) - len(self.festive_days)))
-        desired_shifts_per_nurse = (total_number_of_shifts // num_medics)
+                    (num_morning_shifts_saturday + num_afternoon_shifts_saturday + 1) * len(self.saturdays) +
+                    (num_morning_shifts_ferial + num_afternoon_shifts_ferial + 1) * (num_days - len(self.saturdays) - len(self.festive_days)))
+        desired_shifts_per_nurse = round(total_number_of_shifts / num_medics)
         total_festive_shifts = num_shifts_festive * len(self.festive_days)
-        desired_festive_shifts_per_nurse = (total_festive_shifts // num_medics)
+        desired_festive_shifts_per_nurse = round(total_festive_shifts / num_medics)
         total_night_shifts = num_days
-        desired_night_shifts_per_nurse = total_night_shifts//num_medics
+        desired_night_shifts_per_nurse = round(total_night_shifts/num_medics)
         self.aux_vars_up = {}
 
         self.aux_vars_low = {}
@@ -149,11 +149,11 @@ class ShiftsProblem:
             # self.model.Add(self.aux_vars_low[(2, n)] >= 0)
             self.solver = cp_model.CpSolver()
             self.solver.parameters.linearization_level = 0
-        sum_aux_vars = 0
-        for n in self.all_medics:
-            sum_aux_vars = sum_aux_vars + self.aux_vars_up[(0, n)] + self.aux_vars_up[(1, n)]  + self.aux_vars_up[(2, n)] \
-                           + self.aux_vars_low[(0, n)] + self.aux_vars_low[(1, n)] + self.aux_vars_low[(2, n)]
-        self.model.Minimize(sum_aux_vars)
+        self.sum_aux_vars = cp_model.LinearExpr.Sum([self.aux_vars_up[(0, n)] + self.aux_vars_low[(0, n)] + \
+                                                     self.aux_vars_up[(1, n)] + self.aux_vars_low[(1, n)] + \
+                                                     self.aux_vars_up[(2, n)] + self.aux_vars_low[(2, n)] \
+                                                     for n in self.all_medics])
+        self.model.Minimize(self.sum_aux_vars)
 
     def Solve(self):
         status = self.solver.Solve(self.model)
@@ -170,8 +170,8 @@ class ShiftsProblem:
             ax[week].set_axis_off()
             names_of_days = ('Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom')
             columns = []
-            rows = ['Mattina' + str(i) for i in range(self.num_morning_shifts_ferial)]
-            rows.extend(['Pomeriggio' + str(i) for i in range(self.num_afternoon_shifts_ferial)])
+            rows = ['Mattina ' + str(1+i) for i in range(self.num_morning_shifts_ferial)]
+            rows.extend(['Pomeriggio ' + str(1+i) for i in range(self.num_afternoon_shifts_ferial)])
             rows.append('Notte')
             values = np.zeros((num_shifts_ferial, 7)) # 7 = days of the week
             days_in_week = self.calendar.monthdayscalendar(self.year, self.month)[week]
@@ -222,6 +222,7 @@ class ShiftsProblem:
             cell_text.append([str(int(values[row, col])) for col in range(len(columns))])
         ax[-1].set_axis_off()
         ax[-1].table(cellText=cell_text, rowLabels=rows, colLabels=columns, cellLoc='center', loc='upper left')
+
         plt.show()
         print("pause...")
         return fig
