@@ -42,10 +42,10 @@ from ortools.sat.python import cp_model
 if __name__ == '__main__':
     run_UI()
     # problem = ShiftsProblem(month=12, year=2022, num_medics=8,
-    #                         medics_preferring_full_sundays=[2,3,4], festive_days_no_sundays=[])
+    #                         medics_preferring_full_sundays=[], festive_days_no_sundays=[], vacation_days=[[] for _ in range(8)],
+    #                         num_morning_shifts_ferial=3, num_afternoon_shifts_ferial=2,
+    #                         num_morning_shifts_saturday=2, num_afternoon_shifts_saturday=1)
     # status = problem.Solve()
-
-    # Statistics.
     # if status == cp_model.OPTIMAL or status == cp_model.FEASIBLE:
     #     print("Problem solved")
     # else:
@@ -54,8 +54,7 @@ if __name__ == '__main__':
     # print('  - conflicts      : %i' % problem.solver.NumConflicts())
     # print('  - branches       : %i' % problem.solver.NumBranches())
     # print('  - wall time      : %f s' % problem.solver.WallTime())
-    # print('  - solutions found: %i' % problem.solution_printer.solution_count())
-
+    #
     # problem.PrintTable()
 
 
