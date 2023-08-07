@@ -36,6 +36,8 @@ def run_UI():
     festive_days_no_sundays = st.multiselect(
      'Seleziona giorni festivi (escluse domeniche)',
      days_without_sundays)
+    for i in range(len(festive_days_no_sundays)):
+        festive_days_no_sundays[i] = festive_days_no_sundays[i]-1 # convert to 0-index
 
     medics_preferring_full_sundays = st.multiselect('Seleziona medici che preferiscono festivi 12h', range(1, num_medics+1))
     for i in range(len(medics_preferring_full_sundays)):

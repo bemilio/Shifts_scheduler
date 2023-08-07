@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class ShiftsProblem:
-    def __init__(self, month, year, num_medics, medics_preferring_full_sundays, festive_days_no_sundays, vacation_days,\
+    def __init__(self, month, year, num_medics, medics_preferring_full_sundays, festive_days_no_sundays, vacation_days,
                  num_morning_shifts_ferial, num_afternoon_shifts_ferial,
                  num_morning_shifts_saturday, num_afternoon_shifts_saturday):
         self.month = month
@@ -198,7 +198,7 @@ class ShiftsProblem:
             table = ax[week].table(cellText=cell_text, rowLabels=rows, colLabels=columns, cellLoc='center',
                                    loc='upper left')
         # Print statistics medics
-        columns = ['Dom. 12h', '# turni', '# notti', '# turni fest.']
+        columns = [ '# turni', '# notti', '# turni fest.']
         rows = ["Medico " + str(m + 1) for m in self.all_medics]
         values = np.zeros((self.num_medics, 4))
         for n in self.all_medics:
@@ -213,10 +213,9 @@ class ShiftsProblem:
                             count_night_shifts = count_night_shifts + 1
                         if d in self.festive_days:
                             count_festive_shifts = count_festive_shifts + 1
-            values[n, 0] = int(n in self.medics_preferring_full_sundays)
-            values[n, 1] = count_shifts
-            values[n, 2] = count_night_shifts
-            values[n, 3] = count_festive_shifts
+            values[n, 0] = count_shifts
+            values[n, 1] = count_night_shifts
+            values[n, 2] = count_festive_shifts
         cell_text = []
         for row in range(len(rows)):
             cell_text.append([str(int(values[row, col])) for col in range(len(columns))])
