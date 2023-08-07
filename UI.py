@@ -20,10 +20,11 @@ def run_UI():
     num_morning_shifts_saturday = st.number_input('Numero medici richiesti la mattina (sabato)', 1, num_morning_shifts_ferial, 1, format="%d")
     num_afternoon_shifts_ferial = st.number_input('Numero medici richiesti il pomeriggio (feriali)', 1, max_shifts_afternoon, 1, format="%d")
     num_afternoon_shifts_saturday = st.number_input('Numero medici richiesti il pomeriggio (sabato)', 1, num_afternoon_shifts_ferial, 1, format="%d")
-    month = st.slider(
-        'Mese', 1,12,1)
-        # ('Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto','Settembre', 'Ottobre', 'Novembre', 'Dicembre'))
-    year = st.slider('Anno', 2022, 2032, 2023)
+    list_months = ('Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto','Settembre', 'Ottobre', 'Novembre', 'Dicembre')
+    month = st.selectbox(
+        'Mese', list_months)
+    month = list_months.index(month)+1
+    year = st.number_input('Anno', 2023, 2040, 2023)
     A = calendar.TextCalendar(calendar.SUNDAY)
     days_without_sundays = []
     all_days = []
@@ -36,7 +37,9 @@ def run_UI():
      'Seleziona giorni festivi (escluse domeniche)',
      days_without_sundays)
 
-    medics_preferring_full_sundays = st.multiselect('Seleziona medici che preferiscono festivi 12h', range(num_medics))
+    medics_preferring_full_sundays = st.multiselect('Seleziona medici che preferiscono festivi 12h', range(1, num_medics+1))
+    for i in range(len(medics_preferring_full_sundays)):
+        medics_preferring_full_sundays[i] = medics_preferring_full_sundays[i] - 1 # convert to 0-index
     vacation_days = [[] for _ in range(num_medics)]
     for medic in range(num_medics):
         vacation_days[medic] = st.multiselect('Giorni ferie medico %d' %(medic+1), all_days)

@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from .UI import run_UI
+from UI import run_UI
 from ShiftsProblem import ShiftsProblem
 from ortools.sat.python import cp_model
 
