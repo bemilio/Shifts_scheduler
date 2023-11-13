@@ -7,6 +7,8 @@ from ortools.sat.python import cp_model
 
 
 def run_UI():
+    st.write("# Generatore turni Pediatria Lentini :hospital:")
+    st.write("### Informazioni di base: ")
     num_medics = st.number_input('Numero di medici disponibili', 6,20,10, format="%d")
     '''
     The maximum number of medics that can work every morning/afternoon is given by the number of total medics N minus 3, 
@@ -33,12 +35,23 @@ def run_UI():
             all_days.append(day)
             if date(year, month, day).weekday() != 6:
                 days_without_sundays.append(day)
-    festive_days_no_sundays = st.multiselect(
-     'Seleziona giorni festivi (escluse domeniche)',
-     days_without_sundays)
+    festive_days_no_sundays = st.multiselect('Seleziona giorni festivi (escluse domeniche)', days_without_sundays)
     for i in range(len(festive_days_no_sundays)):
         festive_days_no_sundays[i] = festive_days_no_sundays[i]-1 # convert to 0-index
-
+    st.write("### Informazioni medici: ")
+    initial_medics_info  = pd.DataFrame(
+    [
+       {"Nome": "Med " + str(i), "Festivi 12h": False} for i in range(num_medics)
+    ])
+    medics_info = st.data_editor(initial_medics_info, column_config={
+        "Nome": st.column_config.TextColumn(
+            width=None,
+            help="Inserisci nome breve medico (max. 5 lettere)",
+            max_chars=5
+        ),
+        "Festivi 12h": st.column_config.CheckboxColumn(
+            help="Segna se il medico preferisce fare doppio turno mattina-pomeriggio nei festivi."
+        )})
     medics_preferring_full_sundays = st.multiselect('Seleziona medici che preferiscono festivi 12h', range(1, num_medics+1))
     for i in range(len(medics_preferring_full_sundays)):
         medics_preferring_full_sundays[i] = medics_preferring_full_sundays[i] - 1 # convert to 0-index
