@@ -3,6 +3,7 @@ import numpy as np
 from UI import run_UI
 from ShiftsProblem import ShiftsProblem
 from ortools.sat.python import cp_model
+import locale
 
 #
 # class NursesPartialSolutionPrinter(cp_model.CpSolverSolutionCallback):
@@ -40,6 +41,8 @@ from ortools.sat.python import cp_model
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
+    # Set the locale to Italian
+    locale.setlocale(locale.LC_TIME, 'it_IT')  # for month and days names
     run_UI()
     # problem = ShiftsProblem(month=12, year=2022, num_medics=15,
     #                         medics_preferring_full_sundays=[], festive_days_no_sundays=[], vacation_days=[[] for _ in range(15)],

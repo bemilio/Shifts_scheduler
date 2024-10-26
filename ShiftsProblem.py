@@ -1,19 +1,52 @@
 from ortools.sat.python import cp_model
-import calendar
 from datetime import date
 import matplotlib.pyplot as plt
 import numpy as np
+import calendar
+import random
+calendar.setfirstweekday(calendar.MONDAY)
+
+
+def uniform_vector(N, sum_val):
+    """
+    Generate a vector of length N that sums to sum_val,
+    with elements as uniform as possible.
+
+    Parameters:
+    N (int): Length of the vector.
+    sum_val (int): Desired sum of the vector elements.
+
+    Returns:
+    list: A vector of length N that sums to sum_val.
+    """
+    # Step 1: Calculate the typical element value
+    typical_element = sum_val // N  # Integer division to get the base value for each element
+    # Step 2: Calculate the remainder
+    remainder = sum_val % N  # This is how many elements need to be incremented by 1
+    # Step 3: Initialize the vector with the typical element
+    vector = [typical_element for _ in range(N)]  # Create a list of length N filled with typical_element
+    # Step 4: Randomly select indexes to increase by 1
+    indexes_to_increase = random.sample(range(N), remainder)  # Get 'remainder' unique indexes to increment
+    # Step 5: Increment the selected indexes in the vector
+    for i in indexes_to_increase:
+        vector[i] = vector[i] + 1  # Increase the selected elements by 1
+    return vector  # Return the resulting vector
 
 class ShiftsProblem:
     def __init__(self, month, year, num_medics, medics_preferring_full_sundays, festive_days_no_sundays, vacation_days,
                  num_morning_shifts_ferial, num_afternoon_shifts_ferial,
-                 num_morning_shifts_saturday, num_afternoon_shifts_saturday):
+                 num_morning_shifts_saturday, num_afternoon_shifts_saturday,
+                 additional_shifts_ferial, additional_shifts_festive, additional_shifts_nights):
         self.month = month
         self.year = year
         self.num_medics = num_medics
         self.medics_preferring_full_sundays = medics_preferring_full_sundays
         self.calendar = calendar.TextCalendar(calendar.SUNDAY)
         self.festive_days = festive_days_no_sundays
+        self.additional_shifts_ferial = np.array(additional_shifts_ferial)
+        self.additional_shifts_festive = np.array(additional_shifts_festive)
+        self.additional_shifts_nights = np.array(additional_shifts_nights)
+
         self.saturdays = []
         for day in self.calendar.itermonthdays(year, month):
             if day != 0:
@@ -21,9 +54,6 @@ class ShiftsProblem:
                     self.festive_days.append(day - 1)  # conversion to 0-index
                 if date(year, month, day).weekday() == 5:
                     self.saturdays.append(day - 1)  # conversion to 0-index
-        # self.num_shifts_ferial = 7  # 3 morning, 2 afternoon, 1 night, 1 resting
-        # self.num_shifts_saturdays = 5  # 2 morning, 1 afternoon, 1 night, 1 resting
-        # num_shifts_festive = 4  # 1 morning, 1 afternoon, 1 night, 1 resting
         num_days = max(max((self.calendar.monthdayscalendar(year, month))))
         self.num_morning_shifts_ferial = num_morning_shifts_ferial #need to store in class for plotting
         self.num_afternoon_shifts_ferial = num_afternoon_shifts_ferial #need to store in class for plotting
@@ -97,9 +127,9 @@ class ShiftsProblem:
 
         '''
         Try to distribute the shifts evenly:
-        Compute desired_shifts_per_nurse  as the number of shift each medic should work (in average)
+        Compute desired_shifts_per_medic  as the number of shift each medic should work (in average)
         Define two auxiliary variables (aux_low, aux_up) per medic such that
-        aux_low <= n_shifts_worked_by_medic - desired_shifts_per_nurse <=  aux_up
+        aux_low <= n_shifts_worked_by_medic - desired_shifts_per_medic <=  aux_up
         Repeat for the number of nights worked and number of festive days worked.
         Then, minimize the sum of auxiliary variables.
         '''
@@ -107,11 +137,38 @@ class ShiftsProblem:
         total_number_of_shifts = (num_shifts_festive * len(self.festive_days) +
                     (num_morning_shifts_saturday + num_afternoon_shifts_saturday + 1) * len(self.saturdays) +
                     (num_morning_shifts_ferial + num_afternoon_shifts_ferial + 1) * (num_days - len(self.saturdays) - len(self.festive_days)))
-        desired_shifts_per_nurse = round(total_number_of_shifts / num_medics)
-        total_festive_shifts = num_shifts_festive * len(self.festive_days)
-        desired_festive_shifts_per_nurse = round(total_festive_shifts / num_medics)
         total_night_shifts = num_days
-        desired_night_shifts_per_nurse = round(total_night_shifts/num_medics)
+        total_festive_shifts = num_shifts_festive * len(self.festive_days)
+        '''
+        By default, each medic should work the average number of shifts. However, some medics are required an 
+        additional amount of shifts: this reduces the amount of shifts required to the remaining medics.
+        We create a vector of num_medics element, each element equal to the average amount of shifts required
+         (adjusted to remove the additional shifts), and then we add the specifically requested additional shifts 
+        '''
+        print("sum of additional shifs: " + str(np.sum(self.additional_shifts_ferial )) )
+
+        desired_shifts_per_medic = uniform_vector(num_medics, total_number_of_shifts - np.sum(self.additional_shifts_ferial ))
+        desired_festive_shifts_per_medic = uniform_vector(num_medics, (total_festive_shifts - np.sum(self.additional_shifts_festive)))
+        desired_night_shifts_per_medic = uniform_vector(num_medics, (total_night_shifts - np.sum(self.additional_shifts_nights)))
+
+        # Each medic should work less shifts if they required vacation. How many shifts to reduce is computed by
+        # taking the average number of shifts worked by each medic in each day and multiplying by the number of vacation days requested.
+        avg_shifts_per_day = float(total_number_of_shifts) / (num_days * num_medics)
+        for n in range(num_medics):
+            reduction_shifts_due_to_vacations = int(avg_shifts_per_day * len(vacation_days[n]))
+            desired_shifts_per_medic[n] = desired_shifts_per_medic[n] - reduction_shifts_due_to_vacations + additional_shifts_ferial[n]
+            desired_festive_shifts_per_medic[n] = desired_festive_shifts_per_medic[n] + additional_shifts_festive[n]
+            desired_night_shifts_per_medic[n] = desired_night_shifts_per_medic[n] + additional_shifts_nights[n]
+
+        # Convert everything to integers to avoid the solver to panic
+        # desired_shifts_per_medic = desired_shifts_per_medic.astype(int).tolist()
+        # desired_festive_shifts_per_medic = desired_festive_shifts_per_medic.astype(int).tolist()
+        # desired_night_shifts_per_medic = desired_night_shifts_per_medic.astype(int).tolist()
+        print("desired_shifts_per_medic: " + str(desired_shifts_per_medic))
+        print("desired_festive_shifts_per_medic: " + str(desired_festive_shifts_per_medic))
+        print("desired_night_shifts_per_medic: " + str(desired_night_shifts_per_medic))
+
+
         self.aux_vars_up = {}
 
         self.aux_vars_low = {}
@@ -128,23 +185,21 @@ class ShiftsProblem:
                         night_shifts_worked.append(self.shifts[(n, d, s)])
             self.aux_vars_up[(0, n)] = self.model.NewIntVar(0,5, 'aux_variable_up%it%im' % (0, n))
             self.aux_vars_low[(0, n)] = self.model.NewIntVar(0,5, 'aux_variable_low%it%im' % (0, n))
-            avg_shifts_per_day = desired_shifts_per_nurse / num_days
-            reduction_shifts_due_to_vacations = int(avg_shifts_per_day * len(vacation_days[n]))
-            # print("Medic %d should work %d shifts" %(n, desired_shifts_per_nurse - reduction_shifts_due_to_vacations))
-            self.model.Add( (desired_shifts_per_nurse - reduction_shifts_due_to_vacations) - sum(shifts_worked)<= self.aux_vars_up[(0,n)])
-            self.model.Add( (desired_shifts_per_nurse - reduction_shifts_due_to_vacations) - sum(shifts_worked)>= -1*self.aux_vars_low[(0,n)])
+            # print("Medic %d should work %d shifts" %(n, desired_shifts_per_medic - reduction_shifts_due_to_vacations))
+            self.model.Add( desired_shifts_per_medic[n] - sum(shifts_worked)<= self.aux_vars_up[(0,n)])
+            self.model.Add( desired_shifts_per_medic[n] - sum(shifts_worked)>= -1*self.aux_vars_low[(0,n)])
             # self.model.Add(self.aux_vars_up[(0, n)] >= 0)
             # self.model.Add(self.aux_vars_low[(0, n)] >= 0)
             self.aux_vars_up[(1, n)] = self.model.NewIntVar(0,5, 'aux_variable_up%it%im' % (1, n))
             self.aux_vars_low[(1, n)] = self.model.NewIntVar(0,5, 'aux_variable_low%it%im' % (1, n))
-            self.model.Add(desired_festive_shifts_per_nurse - sum(festive_shifts_worked) <= self.aux_vars_up[(1, n)])
-            self.model.Add(desired_festive_shifts_per_nurse - sum(festive_shifts_worked) >= -1 * self.aux_vars_low[(1, n)])
+            self.model.Add(desired_festive_shifts_per_medic[n] - sum(festive_shifts_worked) <= self.aux_vars_up[(1, n)])
+            self.model.Add(desired_festive_shifts_per_medic[n] - sum(festive_shifts_worked) >= -1 * self.aux_vars_low[(1, n)])
             # self.model.Add(self.aux_vars_up[(1, n)] >= 0)
             # self.model.Add(self.aux_vars_low[(1, n)] >= 0)
             self.aux_vars_up[(2, n)] = self.model.NewIntVar(0,5, 'aux_variable_up%it%im' % (2, n))
             self.aux_vars_low[(2, n)] = self.model.NewIntVar(0,5, 'aux_variable_low%it%im' % (2, n))
-            self.model.Add(desired_night_shifts_per_nurse - sum(night_shifts_worked) <= self.aux_vars_up[(2, n)])
-            self.model.Add(desired_night_shifts_per_nurse - sum(night_shifts_worked) >= -1 * self.aux_vars_low[(2, n)])
+            self.model.Add(desired_night_shifts_per_medic[n] - sum(night_shifts_worked) <= self.aux_vars_up[(2, n)])
+            self.model.Add(desired_night_shifts_per_medic[n] - sum(night_shifts_worked) >= -1 * self.aux_vars_low[(2, n)])
             # self.model.Add(self.aux_vars_up[(2, n)] >= 0)
             # self.model.Add(self.aux_vars_low[(2, n)] >= 0)
             self.solver = cp_model.CpSolver()
@@ -160,15 +215,16 @@ class ShiftsProblem:
 
         return status
 
+
     def PrintTable(self):
         # Create and print table
         n_weeks = len(self.calendar.monthdayscalendar(self.year, self.month))
         num_shifts_ferial = self.num_morning_shifts_ferial + self.num_afternoon_shifts_ferial + 1
         fig, ax = plt.subplots(n_weeks + 1, 1, figsize=(8, 0.3*num_shifts_ferial * (n_weeks + 1)))  # last one is for statistics
-        fig.suptitle("Turni " + str(self.month) + '-' + str(self.year))
+        fig.suptitle("Turni " + calendar.month_name[self.month] + ' ' + str(self.year))
         for week in range(n_weeks):
             ax[week].set_axis_off()
-            names_of_days = ('Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom')
+            # names_of_days = ('Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom')
             columns = []
             rows = ['Mattina ' + str(1+i) for i in range(self.num_morning_shifts_ferial)]
             rows.extend(['Pomeriggio ' + str(1+i) for i in range(self.num_afternoon_shifts_ferial)])
@@ -176,12 +232,15 @@ class ShiftsProblem:
             values = np.zeros((num_shifts_ferial, 7)) # 7 = days of the week
             days_in_week = self.calendar.monthdayscalendar(self.year, self.month)[week]
             index_day = 0
+            print(days_in_week)
             for day in days_in_week:
                 if day == 0:
                     columns.append('-')
                     # values[0, index_day] = 0
                 else:
-                    columns.append(names_of_days[date(self.year, self.month, day).weekday()])
+                    # Print day's name:
+                    # retrieve day number and convert it to the name of the day using calendar.day_name, then take the first 3 letters
+                    columns.append(calendar.day_name[date(self.year, self.month, day).weekday()][:3] + " " + str(day))
                     d = day - 1  # convert to 0-index
                     for s in self.all_shifts[d][:-2]:
                         medic_working = None
@@ -223,5 +282,4 @@ class ShiftsProblem:
         ax[-1].table(cellText=cell_text, rowLabels=rows, colLabels=columns, cellLoc='center', loc='upper left')
 
         plt.show()
-        print("pause...")
         return fig
